@@ -34,6 +34,7 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   slidesFocusable = 'auto',
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
+  const pendingFocusEdgeRef = useRef<'start' | 'end' | null>(null);
   const childrenSlides = Children.toArray(children);
   const allChildrenAreValidElements = childrenSlides.every(isValidElement);
   const [visibleSlides, setVisibleSlides] =
@@ -89,7 +90,14 @@ export const SideScroll: React.FC<SideScrollProps> = ({
 
         focusTargetIndex = targetIndex;
       }
-      //secure that slide is not inert when focus falls on it
+      if (pendingFocusEdgeRef.current !== null && visible.size > 0) {
+        focusTargetIndex =
+          pendingFocusEdgeRef.current === 'end'
+            ? Math.max(...visible)
+            : Math.min(...visible);
+      }
+      pendingFocusEdgeRef.current = null;
+
       flushSync(() =>
         setVisibleSlides((prev) => {
           const next = new Set(visible);
@@ -175,28 +183,44 @@ export const SideScroll: React.FC<SideScrollProps> = ({
     };
   }, [childrenSlides.length]);
 
-  const hidePrevButton = visibleSlides === null || visibleSlides.has(0);
+  const [controlButtonFocus, setControlButtonFocus] = useState<
+    'prev' | 'next' | null
+  >(null);
+  const hidePrevButton =
+    (visibleSlides === null || visibleSlides.has(0)) &&
+    controlButtonFocus !== 'prev';
   const hideNextButton =
-    visibleSlides === null || visibleSlides.has(childrenSlides.length - 1);
+    (visibleSlides === null || visibleSlides.has(childrenSlides.length - 1)) &&
+    controlButtonFocus !== 'next';
   const hasAccessibleName = Boolean(label || labelledBy);
   const isCarousel =
     hasAccessibleName &&
     visibleSlides !== null &&
     visibleSlides.size !== childrenSlides.length;
 
-  const handleNextClick = (): void => {
+  const handleNextClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ): void => {
     if (!visibleSlides) {
       return;
     }
     if (visibleSlides.size === 0) return;
+    if (!event.currentTarget.matches(':focus-visible')) {
+      pendingFocusEdgeRef.current = 'end';
+    }
     scrollToSlide(Math.min(...visibleSlides) + 1);
   };
 
-  const handlePrevClick = (): void => {
+  const handlePrevClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ): void => {
     if (!visibleSlides) {
       return;
     }
     if (visibleSlides.size === 0) return;
+    if (!event.currentTarget.matches(':focus-visible')) {
+      pendingFocusEdgeRef.current = 'start';
+    }
     scrollToSlide(Math.min(...visibleSlides) - 1);
   };
 
@@ -235,6 +259,12 @@ export const SideScroll: React.FC<SideScrollProps> = ({
         aria-controls={trackId}
         aria-label={prevButtonLabel || 'Vorherige Folie'}
         onClick={handlePrevClick}
+        onBlur={() => setControlButtonFocus(null)}
+        onFocus={(event: React.FocusEvent<HTMLButtonElement>) => {
+          if (event.currentTarget.matches(':focus-visible')) {
+            setControlButtonFocus('prev');
+          }
+        }}
       >
         {prevButtonLabel || 'Zurück'}
       </button>
@@ -269,6 +299,12 @@ export const SideScroll: React.FC<SideScrollProps> = ({
         aria-controls={trackId}
         aria-label={nextButtonLabel || 'Nächste Folie'}
         onClick={handleNextClick}
+        onBlur={() => setControlButtonFocus(null)}
+        onFocus={(event: React.FocusEvent<HTMLButtonElement>) => {
+          if (event.currentTarget.matches(':focus-visible')) {
+            setControlButtonFocus('next');
+          }
+        }}
       >
         {nextButtonLabel || 'Weiter'}
       </button>
