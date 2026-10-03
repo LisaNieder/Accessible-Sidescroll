@@ -21,7 +21,7 @@ type SideScrollProps = {
   asLandmark?: boolean;
   prevButtonLabel?: string;
   nextButtonLabel?: string;
-  slidesFocusable?: 'auto' | 'always' | 'never';
+  slideFocusMode?: 'auto' | 'always' | 'never';
 } & React.PropsWithChildren;
 
 export const SideScroll: React.FC<SideScrollProps> = ({
@@ -31,15 +31,15 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   asLandmark,
   prevButtonLabel,
   nextButtonLabel,
-  slidesFocusable = 'auto',
+  slideFocusMode: slidesFocusable = 'auto',
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const pendingFocusEdgeRef = useRef<'start' | 'end' | null>(null);
-  const childrenSlides = Children.toArray(children);
-  const allChildrenAreValidElements = childrenSlides.every(isValidElement);
-  const [visibleSlides, setVisibleSlides] =
+  const slideNodes = Children.toArray(children);
+  const hasOnlyValidElements = slideNodes.every(isValidElement);
+  const [visibleSlideIndexes, setVisibleSlideIndexes] =
     useState<ReadonlySet<number> | null>(null);
-  const [slidesWithFocusableChild, setSlidesWithFocusableChild] =
+  const [indexesWithFocusableChild, setIndexesWithFocusableChild] =
     useState<ReadonlySet<number> | null>(null);
   const getSlideTabIndex = (index: number): number => {
     switch (slidesFocusable) {
@@ -48,75 +48,73 @@ export const SideScroll: React.FC<SideScrollProps> = ({
       case 'always':
         return 0;
       case 'auto':
-        if (slidesWithFocusableChild === null) return 0;
-        return slidesWithFocusableChild.has(index) ? -1 : 0;
+        if (indexesWithFocusableChild === null) return 0;
+        return indexesWithFocusableChild.has(index) ? -1 : 0;
     }
   };
 
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
+    const track = trackRef.current;
+    if (!track) return;
 
-    const slides = Array.from(el.children);
+    const slideElements = Array.from(track.children);
 
-    const withFocusableChild = new Set<number>();
-    slides.forEach((slide, index) => {
+    const indexesWithFocusableChild = new Set<number>();
+    slideElements.forEach((slide, index) => {
       const hasFocusableChild = slide.querySelector(FOCUSABLE_SELECTOR);
       if (hasFocusableChild) {
-        withFocusableChild.add(index);
+        indexesWithFocusableChild.add(index);
       }
     });
-    setSlidesWithFocusableChild(withFocusableChild);
+    setIndexesWithFocusableChild(indexesWithFocusableChild);
 
-    const visible = new Set<number>();
+    const visibleIndexes = new Set<number>();
 
-    let hasMeasured = false;
+    let hasCommittedMeasurement = false;
     let settleTimer = 0;
 
-    const commit = (): void => {
-      const focusedIndex = slides.findIndex((slide) =>
+    const commitMeasurement = (): void => {
+      const focusedSlideIndex = slideElements.findIndex((slide) =>
         slide.contains(document.activeElement),
       );
       let focusTargetIndex: number | null = null;
       if (
-        focusedIndex !== -1 &&
-        visible.size > 0 &&
-        !visible.has(focusedIndex)
+        focusedSlideIndex !== -1 &&
+        visibleIndexes.size > 0 &&
+        !visibleIndexes.has(focusedSlideIndex)
       ) {
-        const firstVisible = Math.min(...visible);
-        const lastVisible = Math.max(...visible);
-        const targetIndex =
-          focusedIndex < firstVisible ? firstVisible : lastVisible;
+        const firstVisibleIndex = Math.min(...visibleIndexes);
+        const lastVisibleIndex = Math.max(...visibleIndexes);
 
-        focusTargetIndex = targetIndex;
+        focusTargetIndex = focusedSlideIndex < firstVisibleIndex ? firstVisibleIndex : lastVisibleIndex;
       }
-      if (pendingFocusEdgeRef.current !== null && visible.size > 0) {
+      if (pendingFocusEdgeRef.current !== null && visibleIndexes.size > 0) {
         focusTargetIndex =
           pendingFocusEdgeRef.current === 'end'
-            ? Math.max(...visible)
-            : Math.min(...visible);
+            ? Math.max(...visibleIndexes)
+            : Math.min(...visibleIndexes);
       }
       pendingFocusEdgeRef.current = null;
 
       flushSync(() =>
-        setVisibleSlides((prev) => {
-          const next = new Set(visible);
-          if (prev === null) {
-            return next;
+        setVisibleSlideIndexes((previousIndexes) => {
+          const nextIndexes = new Set(visibleIndexes);
+          if (previousIndexes === null) {
+            return nextIndexes;
           }
-          if (prev.size !== next.size) {
-            return next;
+          if (previousIndexes.size !== nextIndexes.size) {
+            return nextIndexes;
           }
 
-          const isUnchanged = [...next].every((index) => prev.has(index));
-          if (isUnchanged) {
-            return prev;
+          const isSameSelection = [...nextIndexes].every((index) => previousIndexes.has(index));
+          if (isSameSelection) {
+            return previousIndexes;
           }
-          return next;
+          return nextIndexes;
         }),
       );
       if (focusTargetIndex !== null) {
-        const target = slides[focusTargetIndex];
+        const target = slideElements[focusTargetIndex];
         if (target instanceof HTMLElement) {
           target.focus({ preventScroll: true });
         }
@@ -124,9 +122,9 @@ export const SideScroll: React.FC<SideScrollProps> = ({
     };
 
     const remeasure = (): void => {
-      hasMeasured = false;
-      observer.disconnect();
-      slides.forEach((slide) => observer.observe(slide));
+      hasCommittedMeasurement = false;
+      intersectionObserver.disconnect();
+      slideElements.forEach((slide) => intersectionObserver.observe(slide));
     };
 
     const scheduleRemeasure = (): void => {
@@ -134,151 +132,151 @@ export const SideScroll: React.FC<SideScrollProps> = ({
       settleTimer = window.setTimeout(remeasure, SCROLL_SETTLE_MS);
     };
 
-    const observer = new IntersectionObserver(
+    const intersectionObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const index = slides.indexOf(entry.target);
-          const isInView = entry.intersectionRatio >= 0.99;
-          if (isInView) {
-            visible.add(index);
+          const index = slideElements.indexOf(entry.target);
+          const isFullyVisible = entry.intersectionRatio >= 0.99;
+          if (isFullyVisible) {
+            visibleIndexes.add(index);
           } else {
-            visible.delete(index);
+            visibleIndexes.delete(index);
           }
         }
 
-        if (!hasMeasured) {
-          hasMeasured = true;
-          commit();
+        if (!hasCommittedMeasurement) {
+          hasCommittedMeasurement = true;
+          commitMeasurement();
         }
       },
       {
-        root: el,
+        root: track,
         rootMargin: '0px',
         threshold: [0, 0.99, 1],
       },
     );
-    slides.forEach((slide) => observer.observe(slide));
+    slideElements.forEach((slide) => intersectionObserver.observe(slide));
     const abortController = new AbortController();
     const { signal } = abortController;
 
-    el.addEventListener('scrollend', remeasure, { passive: true, signal });
+    track.addEventListener('scrollend', remeasure, { passive: true, signal });
 
     if (!('onscrollend' in window)) {
-      el.addEventListener('scroll', scheduleRemeasure, {
+      track.addEventListener('scroll', scheduleRemeasure, {
         passive: true,
         signal,
       });
     }
 
     const resizeObserver = new ResizeObserver(scheduleRemeasure);
-    resizeObserver.observe(el);
-    for (const slide of slides) {
+    resizeObserver.observe(track);
+    for (const slide of slideElements) {
       resizeObserver.observe(slide);
     }
     return () => {
-      observer.disconnect();
+      intersectionObserver.disconnect();
       resizeObserver.disconnect();
       abortController.abort();
       window.clearTimeout(settleTimer);
     };
-  }, [childrenSlides.length]);
+  }, [slideNodes.length]);
 
-  const [controlButtonFocus, setControlButtonFocus] = useState<
+  const [focusedControl, setFocusedControl] = useState<
     'prev' | 'next' | null
   >(null);
-  const hidePrevButton =
-    (visibleSlides === null || visibleSlides.has(0)) &&
-    controlButtonFocus !== 'prev';
-  const hideNextButton =
-    (visibleSlides === null || visibleSlides.has(childrenSlides.length - 1)) &&
-    controlButtonFocus !== 'next';
+  const shouldHidePrevButton =
+    (visibleSlideIndexes === null || visibleSlideIndexes.has(0)) &&
+    focusedControl !== 'prev';
+  const shouldHideNextButton =
+    (visibleSlideIndexes === null || visibleSlideIndexes.has(slideNodes.length - 1)) &&
+    focusedControl !== 'next';
   const hasAccessibleName = Boolean(label || labelledBy);
-  const isCarousel =
+  const hasCarouselSemantics =
     hasAccessibleName &&
-    visibleSlides !== null &&
-    visibleSlides.size !== childrenSlides.length;
+    visibleSlideIndexes !== null &&
+    visibleSlideIndexes.size !== slideNodes.length;
 
   const handleNextClick = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    if (!visibleSlides || visibleSlides.size === 0) return;
+    if (!visibleSlideIndexes || visibleSlideIndexes.size === 0) return;
     if (!event.currentTarget.matches(':focus-visible')) {
       pendingFocusEdgeRef.current = 'end';
     }
-    scrollToSlide(Math.min(...visibleSlides) + 1);
+    scrollToSlide(Math.min(...visibleSlideIndexes) + 1);
   };
 
   const handlePrevClick = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    if (!visibleSlides || visibleSlides.size === 0) return;
+    if (!visibleSlideIndexes || visibleSlideIndexes.size === 0) return;
     if (!event.currentTarget.matches(':focus-visible')) {
       pendingFocusEdgeRef.current = 'start';
     }
-    scrollToSlide(Math.min(...visibleSlides) - 1);
+    scrollToSlide(Math.min(...visibleSlideIndexes) - 1);
   };
 
   const scrollToSlide = (index: number): void => {
-    const el = trackRef.current;
-    if (!el) {
+    const track = trackRef.current;
+    if (!track) {
       return;
     }
-    if (index < 0 || index >= el.children.length) {
+    if (index < 0 || index >= track.children.length) {
       return;
     }
-    const trackRect = el.getBoundingClientRect();
-    const slide = el.children[index];
+    const trackRect = track.getBoundingClientRect();
+    const slide = track.children[index];
     const slideRect = slide.getBoundingClientRect();
-    const targetScrollLeft = el.scrollLeft + slideRect.left - trackRect.left;
+    const targetScrollLeft = track.scrollLeft + slideRect.left - trackRect.left;
 
-    el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+    track.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
   };
   const trackId = useId();
-  if (!allChildrenAreValidElements) {
+  if (!hasOnlyValidElements) {
     return null;
   }
 
   return (
     <div
       className={styles.container}
-      role={isCarousel ? (asLandmark ? 'region' : 'group') : undefined}
-      aria-roledescription={isCarousel ? 'Karussell' : undefined}
-      aria-labelledby={isCarousel ? labelledBy : undefined}
-      aria-label={isCarousel ? (labelledBy ? undefined : label) : undefined}
+      role={hasCarouselSemantics ? (asLandmark ? 'region' : 'group') : undefined}
+      aria-roledescription={hasCarouselSemantics ? 'Karussell' : undefined}
+      aria-labelledby={hasCarouselSemantics ? labelledBy : undefined}
+      aria-label={hasCarouselSemantics ? (labelledBy ? undefined : label) : undefined}
     >
       <button
-        className={`${styles['control-button']} ${styles['prev-button']}`}
+        className={`${styles.controlButton} ${styles.prevButton}`}
         type="button"
-        hidden={hidePrevButton}
+        hidden={shouldHidePrevButton}
         aria-controls={trackId}
         aria-label={prevButtonLabel || 'Vorherige Folie'}
         onClick={handlePrevClick}
-        onBlur={() => setControlButtonFocus(null)}
+        onBlur={() => setFocusedControl(null)}
         onFocus={(event: React.FocusEvent<HTMLButtonElement>) => {
           if (event.currentTarget.matches(':focus-visible')) {
-            setControlButtonFocus('prev');
+            setFocusedControl('prev');
           }
         }}
       >
         {prevButtonLabel || 'Zurück'}
       </button>
       <div
-        className={styles['slide-container']}
-        role={isCarousel ? 'presentation' : 'list'}
+        className={styles.track}
+        role={hasCarouselSemantics ? 'presentation' : 'list'}
         ref={trackRef}
         id={trackId}
       >
-        {childrenSlides.map((slide, index) => (
+        {slideNodes.map((slide, index) => (
           <div
             className={styles.slide}
             key={index}
             tabIndex={getSlideTabIndex(index)}
-            inert={visibleSlides !== null && !visibleSlides.has(index)}
-            role={isCarousel ? 'group' : 'listitem'}
-            aria-roledescription={isCarousel ? 'Folie' : undefined}
+            inert={visibleSlideIndexes !== null && !visibleSlideIndexes.has(index)}
+            role={hasCarouselSemantics ? 'group' : 'listitem'}
+            aria-roledescription={hasCarouselSemantics ? 'Folie' : undefined}
             aria-label={
-              isCarousel
-                ? `${index + 1} von ${childrenSlides.length}`
+              hasCarouselSemantics
+                ? `${index + 1} von ${slideNodes.length}`
                 : undefined
             }
           >
@@ -287,16 +285,16 @@ export const SideScroll: React.FC<SideScrollProps> = ({
         ))}
       </div>
       <button
-        className={`${styles['control-button']} ${styles['next-button']}`}
+        className={`${styles.controlButton} ${styles.nextButton}`}
         type="button"
-        hidden={hideNextButton}
+        hidden={shouldHideNextButton}
         aria-controls={trackId}
         aria-label={nextButtonLabel || 'Nächste Folie'}
         onClick={handleNextClick}
-        onBlur={() => setControlButtonFocus(null)}
+        onBlur={() => setFocusedControl(null)}
         onFocus={(event: React.FocusEvent<HTMLButtonElement>) => {
           if (event.currentTarget.matches(':focus-visible')) {
-            setControlButtonFocus('next');
+            setFocusedControl('next');
           }
         }}
       >

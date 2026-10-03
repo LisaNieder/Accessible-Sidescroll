@@ -8,7 +8,7 @@
   --button-size: 48px;
 }
 
-.slide-container {
+.track {
   grid-column: 2;
   display: flex;
   gap: 12px;
@@ -48,7 +48,7 @@
   }
 }
 
-.control-button {
+.controlButton {
   padding: 0;
   width: var(--button-size);
   height: var(--button-size);
@@ -77,10 +77,10 @@
   }
 }
 
-.next-button {
+.nextButton {
   grid-column: 3;
 }
 
-.prev-button {
+.prevButton {
   grid-column: 1;
 }
