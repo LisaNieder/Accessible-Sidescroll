@@ -5,14 +5,20 @@ import {
   Children,
   isValidElement,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
 
-type SideScrollProps = React.PropsWithChildren;
+type SideScrollProps = {
+  prevButtonLabel?: string;
+  nextButtonLabel?: string;
+} & React.PropsWithChildren;
 
 export const SideScroll: React.FC<SideScrollProps> = ({
   children,
+  prevButtonLabel,
+  nextButtonLabel,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const childrenSlides = Children.toArray(children);
@@ -72,6 +78,42 @@ export const SideScroll: React.FC<SideScrollProps> = ({
     };
   }, [childrenSlides.length]);
 
+  const hidePrevButton = visibleSlides === null || visibleSlides.has(0);
+  const hideNextButton =
+    visibleSlides === null || visibleSlides.has(childrenSlides.length - 1);
+
+  const handleNextClick = (): void => {
+    if (!visibleSlides) {
+      return;
+    }
+    if (visibleSlides.size === 0) return;
+    scrollToSlide(Math.min(...visibleSlides) + 1);
+  };
+
+  const handlePrevClick = (): void => {
+    if (!visibleSlides) {
+      return;
+    }
+    if (visibleSlides.size === 0) return;
+    scrollToSlide(Math.min(...visibleSlides) - 1);
+  };
+
+  const scrollToSlide = (index: number): void => {
+    const el = trackRef.current;
+    if (!el) {
+      return;
+    }
+    if (index < 0 || index >= el.children.length) {
+      return;
+    }
+    const trackRect = el.getBoundingClientRect();
+    const slide = el.children[index];
+    const slideRect = slide.getBoundingClientRect();
+    const targetScrollLeft = el.scrollLeft + slideRect.left - trackRect.left;
+
+    el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+  };
+  const trackId = useId();
   if (!allChildrenAreValidElements) {
     return null;
   }
@@ -80,9 +122,20 @@ export const SideScroll: React.FC<SideScrollProps> = ({
     <div
       className={styles.container}
     >
+      <button
+        className={`${styles['control-button']} ${styles['prev-button']}`}
+        type="button"
+        hidden={hidePrevButton}
+        aria-controls={trackId}
+        aria-label={prevButtonLabel || 'Vorherige Folie'}
+        onClick={handlePrevClick}
+      >
+        {prevButtonLabel || 'Zurück'}
+      </button>
       <div
         className={styles['slide-container']}
         ref={trackRef}
+        id={trackId}
       >
         {childrenSlides.map((slide, index) => (
           <div
@@ -93,6 +146,16 @@ export const SideScroll: React.FC<SideScrollProps> = ({
           </div>
         ))}
       </div>
+      <button
+        className={`${styles['control-button']} ${styles['next-button']}`}
+        type="button"
+        hidden={hideNextButton}
+        aria-controls={trackId}
+        aria-label={nextButtonLabel || 'Nächste Folie'}
+        onClick={handleNextClick}
+      >
+        {nextButtonLabel || 'Weiter'}
+      </button>
     </div>
   );
 };

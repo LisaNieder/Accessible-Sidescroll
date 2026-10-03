@@ -1,12 +1,15 @@
 .container {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: var(--button-size) minmax(0, 1fr) var(--button-size);
   align-items: center;
+  column-gap: 12px;
   max-width: 100%;
   min-width: 0;
+  --button-size: 48px;
 }
 
 .slide-container {
+  grid-column: 2;
   display: flex;
   list-style-type: none;
   gap: 12px;
@@ -29,4 +32,42 @@
   &:last-child {
     scroll-snap-align: end;
   }
+}
+
+.control-button {
+  padding: 0;
+  width: var(--button-size);
+  height: var(--button-size);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  border: none;
+  background: #3b3b3b;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &:hover {
+    background-color: #a9a9a9;
+    color: #ffffff;
+  }
+
+  &:active {
+    color: #ffffff !important;
+    background-color: #a9a9a9 !important;
+    border-radius: inherit !important;
+  }
+}
+
+.next-button {
+  grid-column: 3;
+}
+
+.prev-button {
+  grid-column: 1;
 }

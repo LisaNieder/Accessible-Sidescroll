@@ -6,7 +6,10 @@ export default function Home() {
     <main className={styles.main}>
       <div className={styles.itemContainer}>
         <h3 id="accessible-sidescroll">Accessible Sidescroll</h3>
-        <SideScroll>
+        <SideScroll
+          prevButtonLabel="Zurück"
+          nextButtonLabel="Weiter"
+        >
           {Array.from({ length: 15 }, (_, i) => (
             <div key={i} className={styles.testSlide}>
               Slide {i + 1}
