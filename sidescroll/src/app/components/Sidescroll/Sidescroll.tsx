@@ -13,12 +13,18 @@ import {
 const SCROLL_SETTLE_MS = 150;
 
 type SideScrollProps = {
+  label?: string;
+  labelledBy?: string;
+  asLandmark?: boolean;
   prevButtonLabel?: string;
   nextButtonLabel?: string;
 } & React.PropsWithChildren;
 
 export const SideScroll: React.FC<SideScrollProps> = ({
   children,
+  label,
+  labelledBy,
+  asLandmark,
   prevButtonLabel,
   nextButtonLabel,
 }) => {
@@ -120,6 +126,11 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   const hidePrevButton = visibleSlides === null || visibleSlides.has(0);
   const hideNextButton =
     visibleSlides === null || visibleSlides.has(childrenSlides.length - 1);
+  const hasAccessibleName = Boolean(label || labelledBy);
+  const isCarousel =
+    hasAccessibleName &&
+    visibleSlides !== null &&
+    visibleSlides.size !== childrenSlides.length;
 
   const handleNextClick = (): void => {
     if (!visibleSlides) {
@@ -160,6 +171,10 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   return (
     <div
       className={styles.container}
+      role={isCarousel ? (asLandmark ? 'region' : 'group') : undefined}
+      aria-roledescription={isCarousel ? 'Karussell' : undefined}
+      aria-labelledby={isCarousel ? labelledBy : undefined}
+      aria-label={isCarousel ? (labelledBy ? undefined : label) : undefined}
     >
       <button
         className={`${styles['control-button']} ${styles['prev-button']}`}
@@ -173,6 +188,7 @@ export const SideScroll: React.FC<SideScrollProps> = ({
       </button>
       <div
         className={styles['slide-container']}
+        role={isCarousel ? 'presentation' : 'list'}
         ref={trackRef}
         id={trackId}
       >
@@ -180,6 +196,14 @@ export const SideScroll: React.FC<SideScrollProps> = ({
           <div
             className={styles.slide}
             key={index}
+            inert={visibleSlides !== null && !visibleSlides.has(index)}
+            role={isCarousel ? 'group' : 'listitem'}
+            aria-roledescription={isCarousel ? 'Folie' : undefined}
+            aria-label={
+              isCarousel
+                ? `${index + 1} von ${childrenSlides.length}`
+                : undefined
+            }
           >
             {slide}
           </div>

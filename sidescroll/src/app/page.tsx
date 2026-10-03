@@ -7,6 +7,8 @@ export default function Home() {
       <div className={styles.itemContainer}>
         <h3 id="accessible-sidescroll">Accessible Sidescroll</h3>
         <SideScroll
+          labelledBy="accessible-sidescroll"
+          asLandmark
           prevButtonLabel="Zurück"
           nextButtonLabel="Weiter"
         >
