@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 
 const SCROLL_SETTLE_MS = 150;
 const FOCUSABLE_SELECTOR =
@@ -72,21 +73,46 @@ export const SideScroll: React.FC<SideScrollProps> = ({
     let settleTimer = 0;
 
     const commit = (): void => {
-      setVisibleSlides((prev) => {
-        const next = new Set(visible);
-        if (prev === null) {
-          return next;
-        }
-        if (prev.size !== next.size) {
-          return next;
-        }
+      const focusedIndex = slides.findIndex((slide) =>
+        slide.contains(document.activeElement),
+      );
+      let focusTargetIndex: number | null = null;
+      if (
+        focusedIndex !== -1 &&
+        visible.size > 0 &&
+        !visible.has(focusedIndex)
+      ) {
+        const firstVisible = Math.min(...visible);
+        const lastVisible = Math.max(...visible);
+        const targetIndex =
+          focusedIndex < firstVisible ? firstVisible : lastVisible;
 
-        const isUnchanged = [...next].every((index) => prev.has(index));
-        if (isUnchanged) {
-          return prev;
+        focusTargetIndex = targetIndex;
+      }
+      //secure that slide is not inert when focus falls on it
+      flushSync(() =>
+        setVisibleSlides((prev) => {
+          const next = new Set(visible);
+          if (prev === null) {
+            return next;
+          }
+          if (prev.size !== next.size) {
+            return next;
+          }
+
+          const isUnchanged = [...next].every((index) => prev.has(index));
+          if (isUnchanged) {
+            return prev;
+          }
+          return next;
+        }),
+      );
+      if (focusTargetIndex !== null) {
+        const target = slides[focusTargetIndex];
+        if (target instanceof HTMLElement) {
+          target.focus({ preventScroll: true });
         }
-        return next;
-      });
+      }
     };
 
     const remeasure = (): void => {
