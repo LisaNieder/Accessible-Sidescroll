@@ -11,7 +11,6 @@
 .slide-container {
   grid-column: 2;
   display: flex;
-  list-style-type: none;
   gap: 12px;
   overflow-x: auto;
   overflow-inline: auto;
@@ -60,7 +59,6 @@
   border: none;
   background: #3b3b3b;
   color: #ffffff;
-  border: none;
   cursor: pointer;
 
   &:focus-visible {
@@ -72,15 +70,10 @@
     display: none;
   }
 
-  &:hover {
+  &:hover,
+  &:active {
     background-color: #a9a9a9;
     color: #ffffff;
-  }
-
-  &:active {
-    color: #ffffff !important;
-    background-color: #a9a9a9 !important;
-    border-radius: inherit !important;
   }
 }
 

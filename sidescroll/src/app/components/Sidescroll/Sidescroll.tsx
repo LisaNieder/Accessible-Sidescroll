@@ -201,10 +201,7 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   const handleNextClick = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    if (!visibleSlides) {
-      return;
-    }
-    if (visibleSlides.size === 0) return;
+    if (!visibleSlides || visibleSlides.size === 0) return;
     if (!event.currentTarget.matches(':focus-visible')) {
       pendingFocusEdgeRef.current = 'end';
     }
@@ -214,10 +211,7 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   const handlePrevClick = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    if (!visibleSlides) {
-      return;
-    }
-    if (visibleSlides.size === 0) return;
+    if (!visibleSlides || visibleSlides.size === 0) return;
     if (!event.currentTarget.matches(':focus-visible')) {
       pendingFocusEdgeRef.current = 'start';
     }
