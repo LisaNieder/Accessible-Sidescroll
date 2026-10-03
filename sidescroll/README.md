@@ -93,7 +93,7 @@ Focusable slides make it possible to reach non-interactive content with the keyb
 | Button activated with mouse/touch | Focus moves to the first/last visible slide after scrolling |
 | Button activated with keyboard | Focus stays on the button, which stays visible even at the end of the track |
 
-Screen reader testing: <!-- e.g. VoiceOver + Safari, NVDA + Firefox, TalkBack. Fill in what you actually tested. -->
+Screen reader testing: VoiceOver + Safari
 
 ## Browser support
 
