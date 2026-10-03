@@ -11,6 +11,8 @@ import {
 } from 'react';
 
 const SCROLL_SETTLE_MS = 150;
+const FOCUSABLE_SELECTOR =
+  'a[href], button, input, select, textarea, [tabindex]';
 
 type SideScrollProps = {
   label?: string;
@@ -18,6 +20,7 @@ type SideScrollProps = {
   asLandmark?: boolean;
   prevButtonLabel?: string;
   nextButtonLabel?: string;
+  slidesFocusable?: 'auto' | 'always' | 'never';
 } & React.PropsWithChildren;
 
 export const SideScroll: React.FC<SideScrollProps> = ({
@@ -27,18 +30,41 @@ export const SideScroll: React.FC<SideScrollProps> = ({
   asLandmark,
   prevButtonLabel,
   nextButtonLabel,
+  slidesFocusable = 'auto',
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const childrenSlides = Children.toArray(children);
   const allChildrenAreValidElements = childrenSlides.every(isValidElement);
   const [visibleSlides, setVisibleSlides] =
     useState<ReadonlySet<number> | null>(null);
+  const [slidesWithFocusableChild, setSlidesWithFocusableChild] =
+    useState<ReadonlySet<number> | null>(null);
+  const getSlideTabIndex = (index: number): number => {
+    switch (slidesFocusable) {
+      case 'never':
+        return -1;
+      case 'always':
+        return 0;
+      case 'auto':
+        if (slidesWithFocusableChild === null) return 0;
+        return slidesWithFocusableChild.has(index) ? -1 : 0;
+    }
+  };
 
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
 
     const slides = Array.from(el.children);
+
+    const withFocusableChild = new Set<number>();
+    slides.forEach((slide, index) => {
+      const hasFocusableChild = slide.querySelector(FOCUSABLE_SELECTOR);
+      if (hasFocusableChild) {
+        withFocusableChild.add(index);
+      }
+    });
+    setSlidesWithFocusableChild(withFocusableChild);
 
     const visible = new Set<number>();
 
@@ -196,6 +222,7 @@ export const SideScroll: React.FC<SideScrollProps> = ({
           <div
             className={styles.slide}
             key={index}
+            tabIndex={getSlideTabIndex(index)}
             inert={visibleSlides !== null && !visibleSlides.has(index)}
             role={isCarousel ? 'group' : 'listitem'}
             aria-roledescription={isCarousel ? 'Folie' : undefined}

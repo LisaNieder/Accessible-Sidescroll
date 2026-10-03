@@ -27,10 +27,25 @@
 
 .slide {
   flex: 0 0 auto;
+  position: relative;
   scroll-snap-align: start;
 
   &:last-child {
     scroll-snap-align: end;
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      border: 2px solid #5074ef;
+      border-radius: inherit;
+    }
   }
 }
 

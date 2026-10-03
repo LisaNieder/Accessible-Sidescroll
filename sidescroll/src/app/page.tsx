@@ -19,6 +19,23 @@ export default function Home() {
           ))}
         </SideScroll>
       </div>
+      <div className={styles.itemContainer}>
+        <h3 id="accessible-sidescroll-with-focusable-children">
+          Accessible Sidescroll with focusable children
+        </h3>
+        <SideScroll
+          labelledBy="accessible-sidescroll-with-focusable-children"
+          asLandmark
+          prevButtonLabel="Zurück"
+          nextButtonLabel="Weiter"
+        >
+          {Array.from({ length: 15 }, (_, i) => (
+            <div key={i} className={styles.testSlide}>
+              <a href="#">Slide {i + 1}</a>
+            </div>
+          ))}
+        </SideScroll>
+      </div>
     </main>
   );
 }
