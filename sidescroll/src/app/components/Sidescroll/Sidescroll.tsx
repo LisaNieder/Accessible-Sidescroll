@@ -10,6 +10,8 @@ import {
   useState,
 } from 'react';
 
+const SCROLL_SETTLE_MS = 150;
+
 type SideScrollProps = {
   prevButtonLabel?: string;
   nextButtonLabel?: string;
@@ -34,6 +36,9 @@ export const SideScroll: React.FC<SideScrollProps> = ({
 
     const visible = new Set<number>();
 
+    let hasMeasured = false;
+    let settleTimer = 0;
+
     const commit = (): void => {
       setVisibleSlides((prev) => {
         const next = new Set(visible);
@@ -52,6 +57,17 @@ export const SideScroll: React.FC<SideScrollProps> = ({
       });
     };
 
+    const remeasure = (): void => {
+      hasMeasured = false;
+      observer.disconnect();
+      slides.forEach((slide) => observer.observe(slide));
+    };
+
+    const scheduleRemeasure = (): void => {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(remeasure, SCROLL_SETTLE_MS);
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -64,7 +80,10 @@ export const SideScroll: React.FC<SideScrollProps> = ({
           }
         }
 
-        commit();
+        if (!hasMeasured) {
+          hasMeasured = true;
+          commit();
+        }
       },
       {
         root: el,
@@ -73,8 +92,28 @@ export const SideScroll: React.FC<SideScrollProps> = ({
       },
     );
     slides.forEach((slide) => observer.observe(slide));
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
+    el.addEventListener('scrollend', remeasure, { passive: true, signal });
+
+    if (!('onscrollend' in window)) {
+      el.addEventListener('scroll', scheduleRemeasure, {
+        passive: true,
+        signal,
+      });
+    }
+
+    const resizeObserver = new ResizeObserver(scheduleRemeasure);
+    resizeObserver.observe(el);
+    for (const slide of slides) {
+      resizeObserver.observe(slide);
+    }
     return () => {
       observer.disconnect();
+      resizeObserver.disconnect();
+      abortController.abort();
+      window.clearTimeout(settleTimer);
     };
   }, [childrenSlides.length]);
 
